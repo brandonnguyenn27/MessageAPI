@@ -5,17 +5,16 @@ const cors = require("cors");
 const app = express();
 const port = 3000;
 const API_KEY = "123";
-
-app.use(cors());
 app.use(bodyParser.json());
+app.use(cors());
 
 let clients = {};
 let id = 0;
 
 // Handler for the /listen endpoint
 function listenHandler(req, res) {
-  const room = req.body.room || "general";
-  const apiKey = req.body.key;
+  const room = req.query.room || "general";
+  const apiKey = req.query.key;
   if (!isValidKey(apiKey) || !apiKey) {
     return res.status(401).json({ error: "Invalid or missing auth key" });
   }
@@ -24,12 +23,9 @@ function listenHandler(req, res) {
     clients[room] = []; //init room if it doesn't exist
   }
 
-  const headers = {
-    "Content-Type": "text/event-stream",
-    Connection: "keep-alive",
-    "Cache-Control": "no-cache",
-  };
-  res.writeHead(200, headers);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
 
   id += 1;
   let clientId = id;
@@ -38,12 +34,13 @@ function listenHandler(req, res) {
   res.write(`data: Client connected. Room: ${room}. ID: ${clientId}\n\n`);
 
   req.on("close", () => {
-    console.log(`${clientId} Connection closed`);
+    console.log(`ClientID: ${clientId} - Connection closed`);
     clients[room] = clients[room].filter((client) => client.id !== clientId);
     if (clients[room].length === 0) {
       //delete room if empty
       delete clients[room];
     }
+    res.end();
   });
 }
 
