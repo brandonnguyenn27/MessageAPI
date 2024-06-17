@@ -1,11 +1,10 @@
 const express = require("express");
-const bodyParser = require("body-parser");
 const cors = require("cors");
 
 const app = express();
 const port = 3000;
 const API_KEY = "123";
-app.use(bodyParser.json());
+app.use(express.json());
 app.use(cors());
 
 let clients = {};
@@ -15,6 +14,7 @@ let id = 0;
 function listenHandler(req, res) {
   const room = req.query.room || "general";
   const apiKey = req.query.key;
+  console.log(`apiKey: ${apiKey}, room: ${room}`);
   if (!isValidKey(apiKey) || !apiKey) {
     return res.status(401).json({ error: "Invalid or missing auth key" });
   }
@@ -23,9 +23,12 @@ function listenHandler(req, res) {
     clients[room] = []; //init room if it doesn't exist
   }
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+  const headers = {
+    "Content-Type": "text/event-stream",
+    Connection: "keep-alive",
+    "Cache-Control": "no-cache",
+  };
+  res.writeHead(200, headers);
 
   id += 1;
   let clientId = id;
@@ -37,6 +40,7 @@ function listenHandler(req, res) {
     console.log(`ClientID: ${clientId} - Connection closed`);
     clients[room] = clients[room].filter((client) => client.id !== clientId);
     if (clients[room].length === 0) {
+      console.log(`Room ${room} is empty. Deleting room.`);
       //delete room if empty
       delete clients[room];
     }
@@ -59,6 +63,7 @@ function isValidKey(key) {
 
 function messageHandler(req, res) {
   const { message, key, room } = req.body;
+  console.log(`Message: ${message}, Key: ${key}, Room: ${room}`);
   if (!message || !key || !room) {
     return res.status(400).json({ error: "Missing message, key, or room" });
   }
@@ -76,7 +81,8 @@ function messageHandler(req, res) {
   }
   const chatRoom = room || "general";
   console.log(`Sending message to room: ${chatRoom}: ${message}`);
-  return sendMessagesToAll(message, chatRoom);
+  sendMessagesToAll(message, chatRoom);
+  res.status(200).json({ success: true });
 }
 
 // Endpoints
